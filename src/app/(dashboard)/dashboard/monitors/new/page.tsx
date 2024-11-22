@@ -2,6 +2,7 @@ import { Metadata } from "next"
 import { getServerSession } from "next-auth"
 import { redirect } from "next/navigation"
 import { MonitorForm } from "@/components/monitors/monitor-form"
+import { authOptions } from "@/lib/auth"  // Add this import
 
 export const metadata: Metadata = {
   title: "Add Monitor",
@@ -9,9 +10,9 @@ export const metadata: Metadata = {
 }
 
 export default async function NewMonitorPage() {
-  const session = await getServerSession()
+  const session = await getServerSession(authOptions)  // Add authOptions
 
-  if (!session) {
+  if (!session?.user?.id) {  // Check specifically for user.id
     redirect("/login")
   }
 
@@ -25,28 +26,7 @@ export default async function NewMonitorPage() {
       </div>
 
       <div className="max-w-2xl">
-        <MonitorForm
-          onSubmit={async (data) => {
-            "use server"
-            
-            const response = await fetch("/api/monitors", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                ...data,
-                userId: session.user.id,
-              }),
-            })
-
-            if (!response.ok) {
-              throw new Error("Failed to create monitor")
-            }
-
-            redirect("/dashboard/monitors")
-          }}
-        />
+        <MonitorForm userId={session.user.id} />  {/* Pass userId to the form */}
       </div>
     </div>
   )

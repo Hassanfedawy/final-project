@@ -1,9 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -44,19 +41,13 @@ model User {
   id            String    @id @default(auto()) @map("_id") @db.ObjectId
   name          String?
   email         String?   @unique
-  password      String?
   emailVerified DateTime?
   image         String?
   accounts      Account[]
   sessions      Session[]
   monitors      Monitor[]
-  alerts        Alert[]
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  role          Role      @default(USER)
   subscription  Subscription?
-  notificationPreference NotificationPreference?
-  payments     Payment[]
+  notifications Notification[]
 }
 
 model VerificationToken {
@@ -69,126 +60,45 @@ model VerificationToken {
 }
 
 model Monitor {
-  id          String    @id @default(auto()) @map("_id") @db.ObjectId
-  name        String
-  url         String
-  interval    Int       @default(300) // Default 5 minutes in seconds
-  status      Status    @default(PENDING)
-  lastChecked DateTime?
-  uptime      Float     @default(100)
-  userId      String    @db.ObjectId
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  alerts      Alert[]
-  checks      Check[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  @@index([userId])
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  url           String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  userId        String   @db.ObjectId
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  alertThreshold Int     @default(3)
+  interval      Int      @default(300)
+  checks        Check[]
+  status        String   @default("pending")
 }
 
 model Check {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  monitorId String   @db.ObjectId
-  monitor   Monitor  @relation(fields: [monitorId], references: [id], onDelete: Cascade)
-  status    Status
-  responseTime Int
-  timestamp DateTime @default(now())
-
-  @@index([monitorId])
-}
-
-model Alert {
-  id        String     @id @default(auto()) @map("_id") @db.ObjectId
-  type      AlertType
-  userId    String     @db.ObjectId
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  monitorId String     @db.ObjectId
-  monitor   Monitor    @relation(fields: [monitorId], references: [id], onDelete: Cascade)
-  config    Json
-  enabled   Boolean    @default(true)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-
-  @@index([userId])
-  @@index([monitorId])
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  monitorId   String   @db.ObjectId
+  monitor     Monitor  @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+  status      Int
+  timestamp   DateTime @default(now())
+  responseTime Int?
 }
 
 model Subscription {
-  id            String    @id @default(auto()) @map("_id") @db.ObjectId
-  userId        String    @unique @db.ObjectId
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  plan          Plan      @default(FREE)
-  status        SubStatus @default(ACTIVE)
-  stripeCustomerId String?
-  stripePriceId    String?
-  stripeSubscriptionId String?
-  startDate     DateTime  @default(now())
-  endDate       DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId              String   @unique @db.ObjectId
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paypalSubscriptionId String?  @unique
+  planId              String
+  status              String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
-model NotificationPreference {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId    String   @unique @db.ObjectId
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  email     Boolean  @default(true)
-  sms       Boolean  @default(false)
-  slack     Boolean  @default(false)
-  webhook   Boolean  @default(false)
-  phoneNumber String?
-  slackWebhook String?
-  customWebhook String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Payment {
+model Notification {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   userId    String   @db.ObjectId
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  amount    Float
-  currency  String   @default("USD")
-  status    PaymentStatus
-  stripePaymentId String
+  type      String
+  message   String
+  read      Boolean  @default(false)
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([userId])
-}
-
-enum Role {
-  USER
-  ADMIN
-}
-
-enum Status {
-  UP
-  DOWN
-  PENDING
-}
-
-enum AlertType {
-  EMAIL
-  WEBHOOK
-  SLACK
-}
-
-enum Plan {
-  FREE
-  PRO
-  ENTERPRISE
-}
-
-enum SubStatus {
-  ACTIVE
-  CANCELLED
-  EXPIRED
-}
-
-enum PaymentStatus {
-  PENDING
-  SUCCEEDED
-  FAILED
-  REFUNDED
 }

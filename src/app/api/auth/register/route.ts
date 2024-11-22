@@ -11,6 +11,14 @@ const userSchema = z.object({
 export async function POST(req: Request) {
   try {
     const body = await req.json()
+    
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json(
+        { message: "Invalid request body" },
+        { status: 400 }
+      )
+    }
+
     const { email, password } = userSchema.parse(body)
 
     // Check if user already exists
@@ -52,15 +60,24 @@ export async function POST(req: Request) {
       { status: 201 }
     )
   } catch (error) {
-    console.error("Registration error:", error)
+    console.error("Registration error:", error instanceof Error ? error.message : String(error))
+    
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { message: error.errors[0].message },
         { status: 400 }
       )
     }
+
+    if (error instanceof Error && error.message.includes("connect ETIMEDOUT")) {
+      return NextResponse.json(
+        { message: "Database connection timeout. Please try again." },
+        { status: 503 }
+      )
+    }
+
     return NextResponse.json(
-      { message: "Something went wrong" },
+      { message: "Internal server error" },
       { status: 500 }
     )
   }

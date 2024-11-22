@@ -1,7 +1,6 @@
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Check } from "@prisma/client"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import {
   Area,
   AreaChart,
@@ -12,25 +11,34 @@ import {
   YAxis,
 } from "recharts"
 
-interface MonitorChartProps {
-  checks?: Check[]
+interface ChartData {
+  timestamp: string
+  responseTime: number
+  monitorName?: string
 }
 
-export function MonitorChart({ checks = [] }: MonitorChartProps) {
-  const data = checks.map((check) => ({
-    timestamp: new Date(check.timestamp).toLocaleTimeString(),
-    responseTime: check.responseTime,
+interface MonitorChartProps {
+  data: ChartData[]
+  title: string
+  description: string
+}
+
+export function MonitorChart({ data, title, description }: MonitorChartProps) {
+  const formattedData = data.map((item) => ({
+    ...item,
+    timestamp: new Date(item.timestamp).toLocaleTimeString(),
   }))
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Response Time</CardTitle>
+        <CardTitle>{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent className="h-[300px]">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
-            data={data}
+            data={formattedData}
             margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
           >
             <defs>
@@ -51,10 +59,13 @@ export function MonitorChart({ checks = [] }: MonitorChartProps) {
               fontSize={12}
               tickLine={false}
               axisLine={false}
-              tickFormatter={(value) => `${value}ms`}
+              tickFormatter={(value) => `${value}${title.includes("Uptime") ? "%" : "ms"}`}
             />
             <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-            <Tooltip />
+            <Tooltip 
+              formatter={(value: number) => [`${value}${title.includes("Uptime") ? "%" : "ms"}`, title]}
+              labelFormatter={(label) => `Time: ${label}`}
+            />
             <Area
               type="monotone"
               dataKey="responseTime"

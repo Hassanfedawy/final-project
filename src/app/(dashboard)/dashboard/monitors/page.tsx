@@ -6,6 +6,8 @@ import { MonitorTable } from "@/components/monitors/monitor-table"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
 import Link from "next/link"
+import { authOptions } from "@/lib/auth"  // Add this import
+
 
 export const metadata: Metadata = {
   title: "Monitors",
@@ -13,9 +15,9 @@ export const metadata: Metadata = {
 }
 
 export default async function MonitorsPage() {
-  const session = await getServerSession()
+  const session = await getServerSession(authOptions)  // Add authOptions here
 
-  if (!session) {
+  if (!session?.user?.id) {  // Check specifically for user.id
     redirect("/login")
   }
 

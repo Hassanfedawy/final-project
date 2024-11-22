@@ -4,7 +4,6 @@ import * as React from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import {
   Form,
@@ -24,14 +23,25 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { toast } from "sonner"
+import { useRouter } from "next/navigation"
 
 const monitorFormSchema = z.object({
   name: z.string().min(2, {
     message: "Name must be at least 2 characters.",
   }),
-  url: z.string().url({
-    message: "Please enter a valid URL.",
-  }),
+  url: z.string()
+    .min(1, { message: "URL is required" })
+    .refine(
+      (url) => {
+        try {
+          new URL(url);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      { message: "Please enter a valid URL including http:// or https://" }
+    ),
   checkInterval: z.string().min(1, {
     message: "Please select a check interval.",
   }),
@@ -50,13 +60,13 @@ const defaultValues: MonitorFormValues = {
 }
 
 interface MonitorFormProps {
-  onSubmit: (data: MonitorFormValues) => Promise<void>
+  userId: string
   initialData?: MonitorFormValues
 }
 
-export function MonitorForm({ onSubmit, initialData }: MonitorFormProps) {
+export function MonitorForm({ userId, initialData }: MonitorFormProps) {
   const [isLoading, setIsLoading] = React.useState(false)
-  const { data: session } = useSession()
+  const router = useRouter()
 
   const form = useForm<MonitorFormValues>({
     resolver: zodResolver(monitorFormSchema),
@@ -68,37 +78,47 @@ export function MonitorForm({ onSubmit, initialData }: MonitorFormProps) {
 
   async function handleSubmit(data: MonitorFormValues) {
     try {
-      if (!session?.user?.id) {
-        throw new Error("You must be logged in to create a monitor")
-      }
-
       setIsLoading(true)
       
-      // Get the base URL from the window location
+      // Ensure URL has protocol
+      let url = data.url.trim()
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://' + url
+      }
+      
+      // Create the request data
+      const requestData = {
+        name: data.name.trim(),
+        url,
+        checkInterval: data.checkInterval,
+        alertThreshold: data.alertThreshold,
+        userId: userId
+      }
+      
       const baseUrl = window.location.origin
       const response = await fetch(`${baseUrl}/api/monitors`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          ...data,
-          userId: session.user.id,
-        }),
+        body: JSON.stringify(requestData),
+        credentials: "include",
       })
 
       const responseData = await response.json()
 
-      if (!response.ok) {
+      if (!response.ok || !responseData.success) {
         throw new Error(responseData.message || "Failed to save monitor")
       }
 
-      await onSubmit(data)
-      toast.success("Monitor saved successfully")
+      toast.success(responseData.message || "Monitor saved successfully")
+      
+      // Reset form and redirect
       form.reset(defaultValues)
+      router.push('/dashboard/monitors')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Something went wrong")
-      console.error(error)
+      console.error("Error saving monitor:", error)
+      toast.error(error instanceof Error ? error.message : "Failed to save monitor")
     } finally {
       setIsLoading(false)
     }
@@ -202,33 +222,7 @@ export function MonitorForm({ onSubmit, initialData }: MonitorFormProps) {
           )}
         />
         <Button type="submit" disabled={isLoading}>
-          {isLoading ? (
-            <>
-              <svg
-                className="mr-2 h-4 w-4 animate-spin"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                />
-              </svg>
-              Saving...
-            </>
-          ) : (
-            "Save Monitor"
-          )}
+          {isLoading ? "Saving..." : "Save monitor"}
         </Button>
       </form>
     </Form>
